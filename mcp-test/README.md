@@ -59,7 +59,7 @@ Here’s a simple breakdown of what happens:
 * **Use a Different AI Model**: You can change the model by editing the MODEL\_TO\_USE variable in script.py.  
 
     ```python
-    MODEL_TO_USE \= "llama3" # or "phi3"
+    MODEL_TO_USE = "llama3" # or "phi3"
     ```
 
 * **Ask Your Own Questions**: Add new questions by calling the run\_conversation() function in script.py.  
