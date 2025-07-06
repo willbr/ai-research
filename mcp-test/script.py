@@ -8,20 +8,51 @@ from rich.markdown import Markdown
 # --- 0. Rich Console Setup ---
 console = Console()
 
-# --- 1. Database Setup ---
+# --- 1. System Prompt and Schema Definition ---
+SYSTEM_PROMPT = """
+You are a helpful assistant that can query a local SQLite database.
+You have access to a tool called `execute_sql` which can run a SELECT query.
+
+Here is the database schema for the `employees` table you can query. The column names are self-explanatory.
+
+CREATE TABLE employees (
+    EmployeeId INTEGER PRIMARY KEY,
+    LastName TEXT,
+    FirstName TEXT,
+    Title TEXT,
+    ReportsTo INTEGER,
+    BirthDate TEXT,
+    HireDate TEXT,
+    StreetAddress TEXT,
+    City TEXT,
+    State TEXT,
+    Country TEXT,
+    PostalCode TEXT,
+    Phone TEXT,
+    Fax TEXT,
+    Email TEXT
+);
+
+Based on the user's question, generate the appropriate SQL query to pass to the `execute_sql` tool.
+Do not select columns you do not need. For example, if the user asks for names, only select `FirstName` and `LastName`.
+Your thought process should be enclosed in <think>...</think> tags.
+"""
+
+# --- 2. Database Setup ---
 DB_FILE = "chinook.db"
 
 def setup_database():
     """Creates and populates a sample SQLite database."""
+    # To ensure the change is applied, we'll remove the old DB if it exists.
     if os.path.exists(DB_FILE):
-        console.print(f"Database '{DB_FILE}' already exists. Skipping creation.")
-        return
+        console.print(f"Removing old database '{DB_FILE}' to apply schema change.")
+        os.remove(DB_FILE)
 
-    console.print(f"Creating database '{DB_FILE}'...")
+    console.print(f"Creating database '{DB_FILE}' with updated schema...")
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
-    # Create employees table
+    # Create employees table with the new 'StreetAddress' column
     cursor.execute('''
     CREATE TABLE employees (
         EmployeeId INTEGER PRIMARY KEY,
@@ -31,7 +62,7 @@ def setup_database():
         ReportsTo INTEGER,
         BirthDate TEXT,
         HireDate TEXT,
-        Address TEXT,
+        StreetAddress TEXT,
         City TEXT,
         State TEXT,
         Country TEXT,
@@ -57,7 +88,7 @@ def setup_database():
     conn.close()
     console.print("Database setup complete.")
 
-# --- 2. Tool Definition ---
+# --- 3. Tool Definition ---
 def execute_sql(query: str) -> str:
     """
     Executes a SQL query on the chinook.db database and returns the result.
@@ -78,12 +109,19 @@ def execute_sql(query: str) -> str:
     except sqlite3.Error as e:
         return f"Error executing SQL query: {e}"
 
-# --- 3. Main Conversation Logic ---
+# --- 4. Main Conversation Logic ---
+def format_for_markdown(content: str) -> str:
+    """Converts <think> tags to Markdown blockquotes."""
+    return content.replace("<think>", "\n> 🤔 ").replace("</think>", "\n")
+
 def run_conversation(prompt: str, model: str):
     """
     Runs a conversation with the Ollama model, using the defined tool.
     """
-    messages = [{'role': 'user', 'content': prompt}]
+    messages = [
+        {'role': 'system', 'content': SYSTEM_PROMPT},
+        {'role': 'user', 'content': prompt}
+    ]
 
     console.print(f"\n> [bold green]User[/bold green]: {prompt}")
 
@@ -136,13 +174,15 @@ def run_conversation(prompt: str, model: str):
                 messages=messages,
             )
             console.print("\n> [bold magenta]Assistant[/bold magenta]:")
-            console.print(Markdown(final_response['message']['content']))
+            md_content = format_for_markdown(final_response['message']['content'])
+            console.print(Markdown(md_content))
         else:
             console.print(f"Unknown tool requested: {function_name}")
     else:
         # The model responded directly without a tool
         console.print("\n> [bold magenta]Assistant[/bold magenta]:")
-        console.print(Markdown(response['message']['content']))
+        md_content = format_for_markdown(response['message']['content'])
+        console.print(Markdown(md_content))
 
 
 if __name__ == "__main__":
