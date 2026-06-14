@@ -53,3 +53,13 @@ dkms.conf
 # jupyter notebook
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
+
+# local upstream tinygrad clone (reference/dependency, not vendored)
+/tinygrad/
+
+# python venvs
+.venv/
+__pycache__/
+
+# macOS
+.DS_Store
